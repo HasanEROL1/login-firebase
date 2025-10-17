@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+
+/* İsteğe bağlı: form stilleri */
+@plugin "@tailwindcss/forms";
