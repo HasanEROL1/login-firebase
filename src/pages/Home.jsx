@@ -1,25 +1,27 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase/firebaseConfig";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const Home = () => {
   const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           setUserData(userDoc.data());
         } else {
-          // Firestore kaydı yoksa Auth'tan verileri al
           setUserData({
             name: user.displayName || "Bilinmiyor",
             photoURL: user.photoURL || "https://i.pravatar.cc/150?img=64",
@@ -29,10 +31,17 @@ const Home = () => {
       } catch (error) {
         console.error("❌ Kullanıcı bilgisi alınamadı:", error);
         toast.error("Kullanıcı bilgisi yüklenemedi!");
+        setUserData({
+          name: auth.currentUser?.displayName || "Bilinmiyor",
+          photoURL: auth.currentUser?.photoURL || "https://i.pravatar.cc/150?img=64",
+          age: "—",
+        });
+      } finally {
+        setLoading(false);
       }
-    };
+    });
 
-    fetchUserData();
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
@@ -46,8 +55,11 @@ const Home = () => {
     }
   };
 
-  if (!userData)
+  if (loading)
     return <p className="text-center mt-10">Kullanıcı bilgileri yükleniyor...</p>;
+
+  if (!userData)
+    return <p className="text-center mt-10">Kullanıcı bilgileri alınamadı.</p>;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-100 via-white to-indigo-200 p-6">

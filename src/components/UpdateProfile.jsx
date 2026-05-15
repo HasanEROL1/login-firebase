@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const UpdateProfile = () => {
@@ -9,12 +10,15 @@ const UpdateProfile = () => {
   const [photoURL, setPhotoURL] = useState("");
   const [age, setAge] = useState("");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // 🔹 Mevcut kullanıcı bilgilerini getir
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -30,12 +34,14 @@ const UpdateProfile = () => {
       } catch (error) {
         console.error("❌ Kullanıcı verisi alınamadı:", error);
         toast.error("Kullanıcı bilgileri alınamadı");
+        setName(user.displayName || "");
+        setPhotoURL(user.photoURL || "");
       } finally {
         setLoading(false);
       }
-    };
+    });
 
-    fetchUserData();
+    return () => unsubscribe();
   }, []);
 
   // 🔹 Profil güncelleme
@@ -60,10 +66,25 @@ const UpdateProfile = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(db, "users", user.uid), newData, { merge: true });
-
-      console.log("📤 Firestore'a kaydedilen veri:", newData);
-      toast.success("✅ Profil başarıyla güncellendi!");
+      try {
+        await setDoc(doc(db, "users", user.uid), newData, { merge: true });
+        console.log("📤 Firestore'a kaydedilen veri:", newData);
+        toast.success("✅ Profil başarıyla güncellendi!");
+        navigate("/home");
+      } catch (firestoreError) {
+        console.error("❌ Firestore kaydetme hatası:", firestoreError);
+        if (
+          firestoreError.code === "permission-denied" ||
+          firestoreError.message?.includes("Missing or insufficient permissions")
+        ) {
+          toast.error(
+            "Profil yalnızca Auth üzerinde güncellendi. Firestore izinlerini kontrol edin."
+          );
+          navigate("/home");
+        } else {
+          toast.error("Profil güncellenirken Firestore hatası oluştu!");
+        }
+      }
     } catch (error) {
       console.error("❌ Profil güncelleme hatası:", error);
       toast.error("Profil güncellenirken bir hata oluştu!");
