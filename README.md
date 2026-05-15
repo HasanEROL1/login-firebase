@@ -19,14 +19,14 @@ Kullanıcı kayıt, giriş, profil güncelleme ve korumalı (Protected) sayfa ge
 
 ### 1️⃣ Depoyu klonla
 ```bash
-git clone https://github.com/kullaniciadi/proje-adi.git
-cd proje-adi
+git clone https://github.com/HasanEROL1/login-firebase
+```
 
 
 2️⃣ Bağımlılıkları yükle
-
+```
 npm install
-
+```
 
 3️⃣ Firebase yapılandırmasını ekle
 
